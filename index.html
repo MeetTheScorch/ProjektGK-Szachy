@@ -1,0 +1,356 @@
+<html>
+	<head>
+		<title>Projekt</title>
+		<style>canvas { width: 100%; height: 100% }</style>
+	</head>
+	
+	<body>
+		<div>
+		<button onclick="kameraRuch();" style="width:100px; height:32px;">Ruch Kamery</button>
+		<button onclick="kameraA();" style="width:100px; height:32px;">Kamera A</button>
+		<button onclick="kameraB();" style="width:100px; height:32px;">Kamera B</button>
+		<button onclick="kameraC();" style="width:100px; height:32px;">Kamera C</button>
+		</div>
+		
+		<div>
+		<button onclick="kameraBiale();" style="width:100px; height:32px;">Widok biale</button>
+		<button onclick="kameraCzarne();" style="width:100px; height:32px;">Widok czarne</button>
+		<button onclick="kameraLewo();" style="width:100px; height:32px;">Widok lewo</button>
+		<button onclick="kameraPrawo();" style="width:100px; height:32px;">Widok prawo</button>
+		</div>
+		
+		<div>
+		<button onclick="nextMove();" style="width:100px; height:32px;">Ruch</button>
+		<!-- <button onclick="restart();" style="width:100px; height:32px;">Restart</button> -->
+		</div>
+		
+		<script src="js/three.js"></script>
+		<script src="ruchy.js"></script>
+				
+		<script>   
+			var scene = new THREE.Scene();
+			var camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 1024*40 ); 
+			var renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setSize( window.innerWidth * 0.7, window.innerHeight * 0.7 );		
+			document.body.appendChild( renderer.domElement );
+			
+			camera.position.set(0,3000,3000);
+			
+			var chessArray = new Array(8);
+			var chessArrayCopy = new Array(8);
+			for (var i = 0; i < 8; i++) {
+				chessArray[i] = new Array(8);
+				chessArrayCopy[i] = new Array(8);
+				for (var j = 0; j < 8; j++) {
+					chessArray[i][j] = null;
+					chessArrayCopy[i][j] = null;
+				}
+			}
+			
+			var positionArray = new Array(8);
+			for (var i = 0; i < 8; i++) {
+				positionArray[i] = new Array(8);
+			}
+			
+			for (var i = 0; i < 8; i++) {
+				for (var j = 0; j < 8; j++) {
+					var xPos = -1925 + i*550;
+					var yPos = -1925 + j*550;
+					positionArray[i][j] = {x:xPos, y:yPos};
+				}
+			}
+
+			//=================================================================
+			//	Podloga
+
+			var texture = THREE.ImageUtils.loadTexture("img/wood.jpg"); // wczytanie tekstury
+			texture.repeat.set( 32,32); // powtarzanie tekstury 
+			texture.wrapS = THREE.RepeatWrapping; // rysowanie tekstury od poczatku
+			texture.wrapT = THREE.RepeatWrapping; 
+			texture.anisotropy = 16;  //filtrowanie anizotropowe, poprawa jakosci tekstury
+			
+			var planeMaterial = new THREE.MeshBasicMaterial({map: texture}); // material = tekstura
+			var planeGeometry = new THREE.PlaneGeometry(Math.pow(2,14), Math.pow(2,14)); // plaszczyzna (prostokat w plaszczyznie XY)
+			
+			var	plane = new THREE.Mesh( planeGeometry, planeMaterial );
+			plane.rotation.x = - Math.PI / 2; //Obracamy plaszczyzne z polozenia XY w polozenie XZ
+			plane.position.y = 0;
+			plane.position.z = 0;
+			scene.add( plane );	
+			
+			//======================================================================	
+			//	Szachownica
+			
+			var textures = ['img/wood2.jpg', 'img/wood2.jpg', 'img/chess.jpg','img/wood2.jpg', 'img/wood2.jpg', 'img/wood2.jpg'];
+			var materials = [];
+			
+			for(var i=0;i<textures.length;i++) {
+				var texture = THREE.ImageUtils.loadTexture(textures[i]);
+				texture.anisotropy = renderer.getMaxAnisotropy();
+				materials.push( new THREE.MeshBasicMaterial({map: texture}));
+			}
+		
+			var geometry = new THREE.CubeGeometry(4350,200,4350);
+			
+			var chessBoard = new THREE.Mesh( geometry, new THREE.MeshFaceMaterial( materials ));
+			chessBoard.position.set( 0, 100, 0);
+			scene.add( chessBoard );
+
+			chessBoard.receiveShadow = false;
+			
+			//======================================================================	
+			//	
+			
+			var materialWhite = new THREE.MeshLambertMaterial({color: 0xd9d9d9});
+			var materialBlack = new THREE.MeshLambertMaterial({color: 0x0d0d0d});
+			
+			//======================================================================	
+			//	Pionki do gry
+			
+			var loader = new THREE.JSONLoader();
+			
+			// wczytywanie pionków
+			loader.load( "obj/PawnThree.json", function(geometry){  
+				for(var i=0; i<8; i++){
+					pionek = new THREE.Mesh(geometry, materialWhite);
+					pionek.scale.set( 250, 250, 250 );
+					pionek.position.set( positionArray[i][6].x, 700, positionArray[i][6].y );
+					scene.add(pionek);
+					chessArray[i][6] = pionek;
+					chessArrayCopy[i][6] = pionek;
+				}	
+  
+				for(var i=0; i<8; i++){
+					pionek = new THREE.Mesh(geometry, materialBlack);
+					pionek.scale.set( 250, 250, 250 );
+					pionek.position.set( positionArray[i][1].x, 700, positionArray[i][1].y );
+					scene.add(pionek);
+					chessArray[i][1] = pionek;
+					chessArrayCopy[i][1] = pionek;
+				}
+
+			});
+			
+			// wczytywanie wież
+			loader.load( "obj/RookThree.json", function(geometry){ 
+				wieża1 = new THREE.Mesh(geometry, materialWhite);
+				wieża2 = new THREE.Mesh(geometry, materialWhite);
+				wieża1.scale.set( 250, 250, 250 );
+				wieża2.scale.set( 250, 250, 250 );
+				wieża1.position.set( positionArray[0][7].x, 830, positionArray[0][7].y );
+				wieża2.position.set( positionArray[7][7].x, 830, positionArray[7][7].y );
+				scene.add(wieża1);
+				scene.add(wieża2);
+				chessArray[0][7] = wieża1;
+				chessArrayCopy[0][7] = wieża1;
+				chessArray[7][7] = wieża2;
+				chessArrayCopy[7][7] = wieża2;
+
+				wieża1 = new THREE.Mesh(geometry, materialBlack);
+				wieża2 = new THREE.Mesh(geometry, materialBlack);
+				wieża1.scale.set( 250, 250, 250 );
+				wieża2.scale.set( 250, 250, 250 );
+				wieża1.position.set( positionArray[0][0].x, 830, positionArray[0][0].y );
+				wieża2.position.set( positionArray[7][0].x, 830, positionArray[7][0].y );
+				scene.add(wieża1);
+				scene.add(wieża2);
+				chessArray[0][0] = wieża1;
+				chessArrayCopy[0][0] = wieża1;
+				chessArray[7][0] = wieża2;
+				chessArrayCopy[7][0] = wieża2;
+			});
+			
+			// wczytywanie skoczków
+			loader.load( "obj/KnightThree.json", function(geometry){ 
+				skoczek1 = new THREE.Mesh(geometry, materialWhite);
+				skoczek2 = new THREE.Mesh(geometry, materialWhite);
+				skoczek1.scale.set( 250, 250, 250 );
+				skoczek2.scale.set( 250, 250, 250 );
+				skoczek1.position.set( positionArray[1][7].x, 830, positionArray[1][7].y );
+				skoczek2.position.set( positionArray[6][7].x, 830, positionArray[6][7].y );
+				scene.add(skoczek1);
+				scene.add(skoczek2);
+				chessArray[1][7] = skoczek1;
+				chessArrayCopy[1][7] = skoczek1;
+				chessArray[6][7] = skoczek2;
+				chessArrayCopy[6][7] = skoczek2;
+
+				skoczek1 = new THREE.Mesh(geometry, materialBlack);
+				skoczek2 = new THREE.Mesh(geometry, materialBlack);
+				skoczek1.scale.set( 250, 250, 250 );
+				skoczek2.scale.set( 250, 250, 250 );
+				skoczek1.position.set( positionArray[1][0].x, 830, positionArray[1][0].y );
+				skoczek2.position.set( positionArray[6][0].x, 830, positionArray[6][0].y );
+				skoczek1.rotateY(180 * Math.PI / 180);
+				skoczek2.rotateY(180 * Math.PI / 180);
+				scene.add(skoczek1);
+				scene.add(skoczek2);
+				chessArray[1][0] = skoczek1;
+				chessArrayCopy[1][0] = skoczek1;
+				chessArray[6][0] = skoczek2;
+				chessArrayCopy[6][0] = skoczek2;
+			});
+			
+			// wczytywanie gońców
+			loader.load( "obj/BishopThree.json", function(geometry){
+				goniec1 = new THREE.Mesh(geometry, materialWhite);
+				goniec2 = new THREE.Mesh(geometry, materialWhite);
+				goniec1.scale.set( 250, 250, 250 );
+				goniec2.scale.set( 250, 250, 250 );
+				goniec1.position.set( positionArray[2][7].x, 830, positionArray[2][7].y );
+				goniec2.position.set( positionArray[5][7].x, 830, positionArray[5][7].y );
+				scene.add(goniec1);
+				scene.add(goniec2);
+				chessArray[2][7] = goniec1;
+				chessArrayCopy[2][7] = goniec1;
+				chessArray[5][7] = goniec2;
+				chessArrayCopy[5][7] = goniec2;
+
+				goniec1 = new THREE.Mesh(geometry, materialBlack);
+				goniec2 = new THREE.Mesh(geometry, materialBlack);
+				goniec1.scale.set( 250, 250, 250 );
+				goniec2.scale.set( 250, 250, 250 );
+				goniec1.position.set( positionArray[2][0].x, 830, positionArray[2][0].y );
+				goniec2.position.set( positionArray[5][0].x, 830, positionArray[5][0].y );
+				scene.add(goniec1);
+				scene.add(goniec2);
+				chessArray[2][0] = goniec1;
+				chessArrayCopy[2][0] = goniec1;
+				chessArray[5][0] = goniec2;
+				chessArrayCopy[5][0] = goniec2;
+			});
+			
+			// wczytywanie dam
+			loader.load( "obj/QueenThree.json", function(geometry){
+				dama = new THREE.Mesh(geometry, materialWhite);
+				dama.scale.set( 250, 250, 250 );
+				dama.position.set( positionArray[3][7].x, 830, positionArray[3][7].y );
+				scene.add(dama);
+				chessArray[3][7] = dama;
+				chessArrayCopy[3][7] = dama;
+
+				dama = new THREE.Mesh(geometry, materialBlack);
+				dama.scale.set( 250, 250, 250 );
+				dama.position.set( positionArray[3][0].x, 830, positionArray[3][0].y );
+				scene.add(dama);
+				chessArray[3][0] = dama;
+				chessArrayCopy[3][0] = dama;
+			});
+			
+			// wczytywanie króli
+			loader.load( "obj/KingThree.json", function(geometry){
+				król = new THREE.Mesh(geometry, materialWhite);
+				król.scale.set( 250, 250, 250 );
+				król.position.set( positionArray[4][7].x, 830, positionArray[4][7].y );
+				scene.add(król);
+				chessArray[4][7] = król;
+				chessArrayCopy[4][7] = król;
+
+				król = new THREE.Mesh(geometry, materialBlack);
+				król.scale.set( 250, 250, 250 );
+				król.position.set( positionArray[4][0].x, 830, positionArray[4][0].y );
+				scene.add(król);
+				chessArray[4][0] = król;
+				chessArrayCopy[4][0] = król;
+			});
+			
+			//======================================================================
+			// oświetlenie sceny
+			
+			var light = new THREE.PointLight( 0xffffff, 5, Math.pow(2,17));
+			light.position.set( 0, 3000, 3000 );
+			scene.add( light );
+			
+			var light2 = new THREE.PointLight( 0xffffff, 5, Math.pow(2,17));
+			light2.position.set( 0, 3000, -3000 );
+			scene.add( light2 );
+			
+			//======================================================================
+			// 
+			var kat = 0;
+			var katRuch = 0;
+			var angle = 6000;
+			var counter = 0;
+			
+			/*function restart(){
+				counter = 0;
+				for( var i = 0; i < 8; i++ ) {
+					for( var j = 0; j < 8; j++ ) {
+						if( chessArray[i][j] != null) { scene.remove( chessArray[i][j] ); }
+						chessArray[i][j] = Object.create( chessArrayCopy[i][j] );
+						chessArray[i][j].position.set(chessArrayCopy[i][j].position.x,chessArrayCopy[i][j].position.y,chessArrayCopy[i][j].position.z); //kek
+						if(i%2 == 1) scene.add( chessArray[i][j] );
+					}
+				}
+			}*/
+			
+			function kameraA(){
+				camera.position.set(0,3000,3000);
+				angle = 6000;
+			}
+			
+			function kameraB(){
+				camera.position.set(0,6000,3000);
+				angle = 6000;
+			}
+			
+			function kameraC(){
+				camera.position.set(0,8000,0);
+				angle = 1;
+			}
+						
+			function kameraRuch(){
+				if(katRuch == 0.05)
+					katRuch = 0;
+				else
+					katRuch = 0.05;
+			}
+			
+			function kameraBiale(){ kat = 0;}
+			function kameraCzarne(){ kat = 180;}
+			function kameraLewo(){ kat = 270;}
+			function kameraPrawo(){ kat = 90;}
+			
+			function nextMove() {
+				move(ruchy[counter][0], ruchy[counter][1]);
+				counter++;
+			}
+			
+			function move(moveFrom, moveTo) {
+				var fromX = moveFrom.first.charCodeAt(0) - 65;
+				var fromY = 8 - moveFrom.second;
+				
+				var toX = moveTo.first.charCodeAt(0) - 65;
+				var toY = 8 - moveTo.second;
+				
+				if(chessArray[toX][toY] != null) { scene.remove(chessArray[toX][toY]); }
+				chessArray[toX][toY] = chessArray[fromX][fromY];
+				chessArray[fromX][fromY] = null;
+				chessArray[toX][toY].position.set(
+					positionArray[toX][toY].x,
+					chessArray[toX][toY].position.y,
+					positionArray[toX][toY].y);
+			}						
+			
+			function render() {		//petla renderowania, renderuje scene (60 klatek na sekunde)(
+				requestAnimationFrame(render);
+							
+				    kat -= katRuch; 
+					camera.position.x = Math.sin( kat * Math.PI / 180 ) * angle; // Pozycja kamery
+					camera.position.z = Math.cos( kat * Math.PI / 180 ) * angle; // Kamera obiega scene
+					camera.lookAt( scene.position ); // Obrót kamery w stronę sceny
+		
+				renderer.render(scene, camera);
+			}
+			render();
+					
+		</script>
+		<div>
+		- Ruch kamery - obrot kamery</br>
+		- Kamera A, B, C - rozne rzuty kamery na scene</br>
+		- Widok biale, czarne - widok od strony bialych/czarnych figur</br>
+		- Widok lewo, prawo - widok od lewej/prawej strony</br>
+		- Ruch - wykonanie kolejnego ruchu</br>
+		</div>
+	</body>	
+</html>
